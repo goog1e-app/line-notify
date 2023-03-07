@@ -15,6 +15,7 @@ import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.config.ConnectionConfig;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.mime.HttpMultipartMode;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
@@ -38,27 +39,36 @@ public class LineNotifyAPI {
 	private static SentResponseBody send(final String accessToken, final UrlEncodedFormEntity httpEntity) {
 		SentResponseBody responseBody = new SentResponseBody();
 
-		try ( CloseableHttpAsyncClient httpClient = HttpAsyncClients.createDefault()) {
-			httpClient.start();
+		CloseableHttpAsyncClient httpClient = HttpAsyncClients.
+			custom().
+			setDefaultConnectionConfig(
+				ConnectionConfig.
+					custom().
+					setCharset(StandardCharsets.UTF_8).
+					build()
+			).
+			build();
+		httpClient.start();
 
-			HttpPost httpRequest = new HttpPost(ENDPOINT_SEND_NOTIFICATION);
-			httpRequest.setEntity(httpEntity);
-			httpRequest.setHeader(
-				"Content-Type",
-				"application/x-www-form-urlencoded"
-			);
-			httpRequest.setHeader(
-				"Authorization",
-				String.format(
-					"Bearer %s",
-					accessToken
-				)
-			);
-			Future<HttpResponse> future = httpClient.execute(
-				httpRequest,
-				null
-			);
+		HttpPost httpRequest = new HttpPost(ENDPOINT_SEND_NOTIFICATION);
+		httpRequest.setEntity(httpEntity);
+		httpRequest.setHeader(
+			"Content-Type",
+			"application/x-www-form-urlencoded"
+		);
+		httpRequest.setHeader(
+			"Authorization",
+			String.format(
+				"Bearer %s",
+				accessToken
+			)
+		);
+		Future<HttpResponse> future = httpClient.execute(
+			httpRequest,
+			null
+		);
 
+		try {
 			boolean isParsable = true;
 			final HttpResponse httpResponse = future.get();
 			final int statusCode = httpResponse.getStatusLine().getStatusCode();
@@ -87,7 +97,7 @@ public class LineNotifyAPI {
 			}
 
 			httpClient.close();
-		} catch (IOException | ExecutionException | CancellationException | InterruptedException exception) {
+		} catch (ExecutionException | CancellationException | InterruptedException | IOException | UnsupportedOperationException exception) {
 			LOGGER.info(
 				"\n{}",
 				exception
